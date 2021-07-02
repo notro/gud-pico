@@ -31,8 +31,8 @@ The ```PICO_SDK_PATH``` env var should point to the Pico SDK.
 
 Build
 ```
-$ git clone https://github.com/notro/gud
-$ cd gud/gud-pico
+$ git clone https://github.com/notro/gud-pico
+$ cd gud-pico
 $ mkdir build && cd build
 $ cmake ..
 $ make
