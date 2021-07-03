@@ -14,8 +14,8 @@ tusb_desc_device_t const device_descriptor = {
     .bDeviceProtocol 	= 0,      // No protocol
     .bMaxPacketSize0 	= 64,     // Max packet size for ep0
 
-    .idVendor        	= 0x1d50,
-    .idProduct       	= 0x614d,
+    .idVendor        	= CFG_GUD_VID,
+    .idProduct       	= CFG_GUD_PID,
     .bcdDevice       	= 0,      // Device revision number
 
     .iManufacturer      = 1,
