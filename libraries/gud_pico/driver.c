@@ -124,17 +124,8 @@ static bool gud_driver_control_request(uint8_t rhport, tusb_control_request_t co
                  __func__, req->bRequest, req->bmRequestType,
                  req->bmRequestType_bit.direction ? "IN" : "OUT", wLength, req->wLength);
 
-    if (req->bmRequestType_bit.recipient != TUSB_REQ_RCPT_INTERFACE)
-        return false;
-
-    // tinyusb doesn't handled this
-    if (req->bmRequestType_bit.type == TUSB_REQ_TYPE_STANDARD &&
-        req->bRequest == TUSB_REQ_GET_STATUS && req->bmRequestType_bit.direction) {
-        uint16_t status = 0;
-        return tud_control_xfer(rhport, req, &status, sizeof(status));
-    }
-
-    if (req->bmRequestType_bit.type != TUSB_REQ_TYPE_VENDOR)
+    if (req->bmRequestType_bit.recipient != TUSB_REQ_RCPT_INTERFACE ||
+        req->bmRequestType_bit.type != TUSB_REQ_TYPE_VENDOR)
         return false;
 
     if (req->bmRequestType_bit.direction) {
@@ -247,6 +238,20 @@ static bool gud_driver_control_complete(uint8_t rhport, tusb_control_request_t c
     return true;
 }
 
+bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * req)
+{
+    if ( stage == CONTROL_STAGE_SETUP )
+        return gud_driver_control_request(rhport, req);
+    else if ( stage == CONTROL_STAGE_DATA )
+        return gud_driver_control_complete(rhport, req);
+    return true;
+}
+
+static bool gud_driver_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_request_t const * req)
+{
+    return false;
+}
+
 static bool gud_driver_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t result, uint32_t xferred_bytes)
 {
     TU_VERIFY(result == XFER_RESULT_SUCCESS);
@@ -292,8 +297,7 @@ static usbd_class_driver_t const _usbd_driver[] =
         .init             = gud_driver_init,
         .reset            = gud_driver_reset,
         .open             = gud_driver_open,
-        .control_request  = gud_driver_control_request,
-        .control_complete = gud_driver_control_complete,
+        .control_xfer_cb  = gud_driver_control_xfer_cb,
         .xfer_cb          = gud_driver_xfer_cb,
         .sof              = NULL
     },
