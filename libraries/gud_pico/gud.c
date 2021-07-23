@@ -82,7 +82,7 @@ static int gud_req_get_connectors(const struct gud_display *disp, struct gud_con
         return -GUD_STATUS_PROTOCOL_ERROR;
 
     desc->connector_type = GUD_CONNECTOR_TYPE_PANEL;
-    desc->flags = 0;
+    desc->flags = disp->connector_flags;
 
     return sizeof(*desc);
 }

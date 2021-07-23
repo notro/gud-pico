@@ -39,6 +39,9 @@ uint8_t *_compress_buf;
 CFG_TUSB_MEM_SECTION CFG_TUSB_MEM_ALIGN static uint8_t _ctrl_req_buf[GUD_CTRL_REQ_BUF_SIZE];
 CFG_TUSB_MEM_SECTION CFG_TUSB_MEM_ALIGN static uint8_t status;
 
+static bool controller_enabled;
+static uint64_t req_timestamp;
+
 #if GUD_DRV_FLUSH_STATS
 typedef struct
 {
@@ -124,6 +127,8 @@ static bool gud_driver_control_request(uint8_t rhport, tusb_control_request_t co
                  __func__, req->bRequest, req->bmRequestType,
                  req->bmRequestType_bit.direction ? "IN" : "OUT", wLength, req->wLength);
 
+    req_timestamp = time_us_64();
+
     if (req->bmRequestType_bit.recipient != TUSB_REQ_RCPT_INTERFACE ||
         req->bmRequestType_bit.type != TUSB_REQ_TYPE_VENDOR)
         return false;
@@ -201,6 +206,9 @@ static bool gud_driver_control_complete(uint8_t rhport, tusb_control_request_t c
             status = -ret;
             return false;
         }
+
+        if (req->bRequest == GUD_REQ_SET_CONTROLLER_ENABLE)
+            controller_enabled = *(uint8_t *)_ctrl_req_buf;
 
         if (req->bRequest == GUD_REQ_SET_BUFFER) {
             const struct gud_set_buffer_req *buf_req = (const struct gud_set_buffer_req *)_ctrl_req_buf;
@@ -286,6 +294,23 @@ static bool gud_driver_xfer_cb(uint8_t rhport, uint8_t ep_addr, xfer_result_t re
         return gud_driver_bulk_xfer(rhport, _framebuffer, _gud_itf.xfer_len, _gud_itf.xfer_len);
 
     return true;
+}
+
+/*
+ * This can be used to detect loss of communication with the host.
+ * I have experienced situations where the host thinks everything is fine,
+ * but this driver never sees the request.
+ *
+ * Set the poll flag to ensure a request is sent every 10 seconds:
+ * gud_display.connector_flags = GUD_CONNECTOR_FLAGS_POLL_STATUS
+ */
+bool gud_driver_req_timeout(unsigned int timeout_secs)
+{
+    if (!controller_enabled)
+        return false;
+
+    uint64_t timeout = req_timestamp + (timeout_secs * 1000 * 1000);
+    return time_us_64() > timeout;
 }
 
 static usbd_class_driver_t const _usbd_driver[] =

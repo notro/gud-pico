@@ -365,6 +365,7 @@ struct gud_display {
 
 	const struct gud_property_req *connector_properties;
 	uint8_t num_connector_properties;
+	uint32_t connector_flags;
 
 	const struct gud_display_edid *edid;
 

@@ -8,12 +8,16 @@
 #include "tusb.h"
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
+#include "hardware/watchdog.h"
 #include "pico/unique_id.h"
 
 #include "driver.h"
 #include "gud.h"
 #include "mipi_dbi.h"
 #include "cie1931.h"
+
+#define USE_WATCHDOG    1
+#define PANIC_REBOOT_BLINK_LED_MS   100
 
 #define LOG
 #define LOG2
@@ -32,10 +36,12 @@
 #define WIDTH   240
 #define HEIGHT  135
 
-uint16_t framebuffer[WIDTH * HEIGHT];
-uint16_t compress_buf[WIDTH * HEIGHT];
+static uint16_t framebuffer[WIDTH * HEIGHT];
+static uint16_t compress_buf[WIDTH * HEIGHT];
 
-uint16_t buffer_test[WIDTH * HEIGHT];
+static uint16_t buffer_test[WIDTH * HEIGHT];
+
+static uint64_t panic_reboot_blink_time;
 
 static const struct mipi_dbi dbi = {
     .spi = spi0,
@@ -232,6 +238,10 @@ const struct gud_display display = {
 
     .connector_properties = connector_properties,
     .num_connector_properties = 1,
+#if USE_WATCHDOG
+    // Tell the host to send a connector status request every 10 seconds for our tinyusb "watchdog"
+    .connector_flags = GUD_CONNECTOR_FLAGS_POLL_STATUS,
+#endif
 
     .edid = &edid,
 
@@ -287,6 +297,11 @@ int main(void)
 {
     board_init();
 
+    if (USE_WATCHDOG && watchdog_caused_reboot()) {
+        LOG("Rebooted by Watchdog!\n");
+        panic_reboot_blink_time = 1;
+    }
+
     if (LED_ACTION)
         board_led_write(true);
 
@@ -300,9 +315,30 @@ int main(void)
 
     turn_off_rgb_led();
 
+    if (USE_WATCHDOG)
+        watchdog_enable(5000, 0); // pause_on_debug=0 so it can reset panics.
+
     while (1)
     {
         tud_task(); // tinyusb device task
+
+        if (USE_WATCHDOG) {
+            watchdog_update();
+
+            uint64_t now = time_us_64();
+            if (PANIC_REBOOT_BLINK_LED_MS && panic_reboot_blink_time && panic_reboot_blink_time < now) {
+                static bool led_state;
+                board_led_write(led_state);
+                led_state = !led_state;
+                panic_reboot_blink_time = now + (PANIC_REBOOT_BLINK_LED_MS * 1000);
+            }
+
+            // Sometimes we stop receiving USB requests, but the host thinks everything is fine.
+            // Reset if we haven't heard from tinyusb, the host sends connector status requests every 10 seconds
+            // Let the watchdog do the reset
+            if (gud_driver_req_timeout(15))
+                panic("Request TIMEOUT");
+        }
     }
 
     return 0;
