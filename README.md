@@ -15,7 +15,4 @@ $ make
 
 ```
 
-The default VID:PID won't be supported in the host driver before Linux v5.15 is out. Can be changed in `libraries/gud_pico/tusb_config.h`.
-
-TODO:
-- See if it's possible to use unlz4. It works with the test image in ```modetest``` but hangs when flipping ```modetest -v```. Decompression doesn't seem to be a bottleneck, so maybe drop this?
+The default VID:PID won't be supported in the host driver before Linux v5.15 is out (it's present in the rPi 5.10 backport). Can be changed in `libraries/gud_pico/tusb_config.h`.
