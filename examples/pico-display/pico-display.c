@@ -41,6 +41,7 @@ static uint16_t compress_buf[WIDTH * HEIGHT];
 
 static uint16_t buffer_test[WIDTH * HEIGHT];
 
+static bool display_enabled;
 static uint64_t panic_reboot_blink_time;
 
 static const struct mipi_dbi dbi = {
@@ -88,6 +89,8 @@ static int display_enable(const struct gud_display *disp, uint8_t enable)
 {
     LOG("%s: enable=%u\n", __func__, enable);
 
+    display_enabled = enable;
+
     if (enable)
         backlight_set(brightness);
     else
@@ -107,7 +110,8 @@ static int state_commit(const struct gud_display *disp, const struct gud_state_r
         switch (prop->prop) {
             case GUD_PROPERTY_BACKLIGHT_BRIGHTNESS:
                 brightness = prop->val;
-                backlight_set(brightness);
+                if (display_enabled)
+                    backlight_set(brightness);
                 break;
             default:
                 LOG("Unknown property: %u\n", prop->prop);
