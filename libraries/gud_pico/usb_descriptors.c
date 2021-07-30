@@ -104,9 +104,7 @@ uint16_t const *tud_descriptor_string_cb(uint8_t index, uint16_t langid)
     } else if (index == 2) {
         str = "Pico GUD Display";
     } else if (index == 3) {
-        pico_unique_board_id_t id_out;
-        pico_get_unique_board_id(&id_out);
-        snprintf(serial, sizeof(serial), "%016llx", *((uint64_t*)(id_out.id)));
+        pico_get_unique_board_id_string(serial, sizeof(serial));
         str = serial;
     } else {
         return NULL;
