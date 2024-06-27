@@ -65,7 +65,7 @@ gud_display_config_descriptor_t config_descriptor = {
         .bDescriptorType = TUSB_DESC_ENDPOINT,
         .bEndpointAddress = 3,
         .bmAttributes = TUSB_XFER_BULK,
-        .wMaxPacketSize.size = CFG_GUD_BULK_OUT_SIZE,
+        .wMaxPacketSize = CFG_GUD_BULK_OUT_SIZE,
     },
 };
 
