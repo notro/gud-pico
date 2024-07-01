@@ -1,6 +1,4 @@
-/*
- * SPDX-License-Identifier: MIT
- */
+// SPDX-License-Identifier: MIT
 
 #ifndef __LINUX_GUD_PROTOCOL_H
 #define __LINUX_GUD_PROTOCOL_H

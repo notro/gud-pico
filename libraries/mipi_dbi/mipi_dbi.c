@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: CC0-1.0
+// SPDX-License-Identifier: MIT
 
 #include "hardware/dma.h"
 #include "hardware/gpio.h"

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: CC0-1.0
+// SPDX-License-Identifier: MIT
 
 #ifndef _TUSB_CONFIG_H_
 #define _TUSB_CONFIG_H_

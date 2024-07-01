@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 add_library(gud_pico INTERFACE)
 
 target_sources(gud_pico INTERFACE

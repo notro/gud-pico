@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: CC0-1.0
+// SPDX-License-Identifier: MIT
 
 #ifndef _GUD_DRIVER_H_
 #define _GUD_DRIVER_H_

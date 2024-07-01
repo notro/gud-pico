@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 add_library(mipi_dbi INTERFACE)
 
 target_sources(mipi_dbi INTERFACE

@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT
+
 cmake_minimum_required(VERSION 3.13)
 
 set(TINYUSB_DEBUG_LEVEL 2)
