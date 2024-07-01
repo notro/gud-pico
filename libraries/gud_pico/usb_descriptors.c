@@ -75,7 +75,7 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
     return (uint8_t const *)&config_descriptor;
 }
 
-typedef struct TU_ATTR_PACKED
+typedef struct TU_ATTR_PACKED TU_ATTR_ALIGNED(4)
 {
     uint8_t bLength;
     uint8_t bDescriptorType;
