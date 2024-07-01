@@ -1,5 +1,6 @@
+// SPDX-License-Identifier: MIT
 
-// https://jared.geek.nz/2013/feb/linear-led-pwm
+// https://web.archive.org/web/20230906171704/https://jared.geek.nz/2013/feb/linear-led-pwm
 static const uint16_t cie1931[101] = {
     36, 73, 145, 218, 290, 363, 435, 508, 580, 608,
     684, 765, 854, 948, 1050, 1159, 1274, 1398, 1529, 1667,

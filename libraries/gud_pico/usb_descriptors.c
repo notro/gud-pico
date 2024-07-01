@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: CC0-1.0
+// SPDX-License-Identifier: MIT
 
 #include <string.h>
 #include "tusb.h"
@@ -65,7 +65,7 @@ gud_display_config_descriptor_t config_descriptor = {
         .bDescriptorType = TUSB_DESC_ENDPOINT,
         .bEndpointAddress = 3,
         .bmAttributes = TUSB_XFER_BULK,
-        .wMaxPacketSize.size = CFG_GUD_BULK_OUT_SIZE,
+        .wMaxPacketSize = CFG_GUD_BULK_OUT_SIZE,
     },
 };
 
@@ -75,7 +75,7 @@ uint8_t const * tud_descriptor_configuration_cb(uint8_t index)
     return (uint8_t const *)&config_descriptor;
 }
 
-typedef struct TU_ATTR_PACKED
+typedef struct TU_ATTR_PACKED TU_ATTR_ALIGNED(4)
 {
     uint8_t bLength;
     uint8_t bDescriptorType;

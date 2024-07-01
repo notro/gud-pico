@@ -1,4 +1,11 @@
-// SPDX-License-Identifier: CC0-1.0
+// SPDX-License-Identifier: MIT
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// This example has extra code for testing pixel formats that are not supported by the Linux gadget.
+// Maybe look at mi0283qt for a cleaner example.
+//
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,7 +46,8 @@
 static uint16_t framebuffer[WIDTH * HEIGHT];
 static uint16_t compress_buf[WIDTH * HEIGHT];
 
-static uint16_t buffer_test[WIDTH * HEIGHT];
+// Used when emulating pixel formats
+static uint16_t conversion_buffer[WIDTH * HEIGHT];
 
 static bool display_enabled;
 static uint64_t panic_reboot_blink_time;
@@ -116,7 +124,7 @@ static int state_commit(const struct gud_display *disp, const struct gud_state_r
             default:
                 LOG("Unknown property: %u\n", prop->prop);
                 break;
-        };
+        }
     }
 
     return 0;
@@ -155,6 +163,22 @@ static size_t r1_to_rgb565(uint16_t *dst, uint8_t *src, uint16_t src_width, uint
    return len;
 }
 
+static size_t r8_to_rgb565(uint16_t *dst, uint8_t *src, uint16_t src_width, uint16_t src_height)
+{
+    size_t len = 0;
+
+    for (uint16_t y = 0; y < src_height; y++) {
+        for (uint16_t x = 0; x < src_width; x++) {
+            #define GREY_MASK   0xff // 8-bits = 0xff, 4-bits = 0xf0, 2-bits = 0xc0
+            uint8_t grey = *src++ & GREY_MASK;
+            *dst++ = ((grey >> 3) << 11) | ((grey >> 2) << 5) | (grey >> 3);
+            len += sizeof(*dst);
+        }
+   }
+
+   return len;
+}
+
 static size_t rgb111_to_rgb565(uint16_t *dst, uint8_t *src, uint16_t src_width, uint16_t src_height)
 {
     uint8_t rgb111, val = 0;
@@ -174,6 +198,21 @@ static size_t rgb111_to_rgb565(uint16_t *dst, uint8_t *src, uint16_t src_width, 
    return len;
 }
 
+static size_t rgb332_to_rgb565(uint16_t *dst, uint8_t *src, uint16_t src_width, uint16_t src_height)
+{
+    size_t len = 0;
+
+    for (uint16_t y = 0; y < src_height; y++) {
+        for (uint16_t x = 0; x < src_width; x++) {
+            *dst++ = ((*src & 0xe0) << 8) | ((*src & 0x1c) << 6) | ((*src & 0x03) << 3);
+            src++;
+            len += sizeof(*dst);
+        }
+    }
+
+   return len;
+}
+
 static void write_buffer(const struct gud_display *disp, const struct gud_set_buffer_req *set_buf, void *buf)
 {
     uint32_t length = set_buf->length;
@@ -182,11 +221,17 @@ static void write_buffer(const struct gud_display *disp, const struct gud_set_bu
          set_buf->x, set_buf->y, set_buf->width, set_buf->height, set_buf->length, set_buf->compression);
 
     if (disp->formats[0] == GUD_PIXEL_FORMAT_R1) {
-        length = r1_to_rgb565(buffer_test, buf, set_buf->width, set_buf->height);
-        buf = buffer_test;
+        length = r1_to_rgb565(conversion_buffer, buf, set_buf->width, set_buf->height);
+        buf = conversion_buffer;
+    } else if (disp->formats[0] == GUD_PIXEL_FORMAT_R8) {
+        length = r8_to_rgb565(conversion_buffer, buf, set_buf->width, set_buf->height);
+        buf = conversion_buffer;
     } else if (disp->formats[0] == GUD_PIXEL_FORMAT_XRGB1111) {
-        length = rgb111_to_rgb565(buffer_test, buf, set_buf->width, set_buf->height);
-        buf = buffer_test;
+        length = rgb111_to_rgb565(conversion_buffer, buf, set_buf->width, set_buf->height);
+        buf = conversion_buffer;
+    } else if (disp->formats[0] == GUD_PIXEL_FORMAT_RGB332) {
+        length = rgb332_to_rgb565(conversion_buffer, buf, set_buf->width, set_buf->height);
+        buf = conversion_buffer;
     }
 
     mipi_dbi_update16(&dbi, set_buf->x + 40, set_buf->y + 53, set_buf->width, set_buf->height, buf, length);
@@ -199,7 +244,9 @@ static void write_buffer(const struct gud_display *disp, const struct gud_set_bu
 
 static const uint8_t pixel_formats[] = {
 //    GUD_PIXEL_FORMAT_R1,
+//    GUD_PIXEL_FORMAT_R8,
 //    GUD_PIXEL_FORMAT_XRGB1111,
+//    GUD_PIXEL_FORMAT_RGB332,
     GUD_PIXEL_FORMAT_RGB565,
 };
 

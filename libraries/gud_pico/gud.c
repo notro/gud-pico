@@ -1,6 +1,4 @@
-/*
- * SPDX-License-Identifier: MIT
- */
+// SPDX-License-Identifier: MIT
 
 #include <stdio.h>
 #include <string.h>
@@ -301,10 +299,15 @@ uint32_t gud_get_buffer_length(uint8_t format, uint32_t width, uint32_t height)
     switch (format) {
     case GUD_PIXEL_FORMAT_R1:
         return div_round_up(width, 8) * height;
+    case GUD_PIXEL_FORMAT_R8:
+    case GUD_PIXEL_FORMAT_RGB332:
+        return width * height;
     case GUD_PIXEL_FORMAT_XRGB1111:
         return div_round_up(width, 2) * height;
     case GUD_PIXEL_FORMAT_RGB565:
         return width * height * 2;
+    case GUD_PIXEL_FORMAT_RGB888:
+        return width * height * 3;
     case GUD_PIXEL_FORMAT_XRGB8888:
     case GUD_PIXEL_FORMAT_ARGB8888:
         return width * height * 4;
