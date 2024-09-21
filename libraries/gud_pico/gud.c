@@ -200,7 +200,7 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     edid[20] = 0x80;  // Digital input: 1, bit depth: undefined, interface: undefined
     edid[21] = div_round_up(disp->edid->width_mm, 10); // width in cm
     edid[22] = div_round_up(disp->edid->height_mm, 10); // height in cm
-    edid[23] = 0; // gamma
+    edid[23] = disp->edid->gamma ? disp->edid->gamma - 100 : 0; // gamma
     edid[24] = 0x02; // RGB 4:4:4, preferred timings include pixel format and refresh rate
 
     // Chromaticity coordinates, required for sRGB

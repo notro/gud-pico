@@ -363,6 +363,7 @@ struct gud_display_edid {
 	uint16_t year;
 	uint16_t width_mm;
 	uint16_t height_mm;
+	uint16_t gamma;
 
 	struct gud_display_chromaticity *chromaticity;
 	struct gud_display_timings *timings;
