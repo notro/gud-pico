@@ -187,7 +187,7 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     }
 
     // Manufacture
-    edid[16] = 1; // week
+    edid[16] = disp->edid->week;
     if (disp->edid->year > 1990)
         edid[17] = disp->edid->year - 1990;
     else

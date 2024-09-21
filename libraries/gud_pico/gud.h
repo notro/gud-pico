@@ -360,6 +360,7 @@ struct gud_display_edid {
 	const char *name;	// Max 13 characters
 	const char *pnp;	// Plug'n Play Id, must be 3 uppercase characters
 	uint16_t product_code;
+	uint8_t week;
 	uint16_t year;
 	uint16_t width_mm;
 	uint16_t height_mm;
