@@ -113,6 +113,16 @@ static struct gud_display_chromaticity default_chromaticity = {
     .w = { 320, 337 },
 };
 
+static struct gud_display_timings default_timings = {
+    .hfront = 0,
+    .hsync = 0,
+    .hback = 0,
+    .vfront = 0,
+    .vsync = 0,
+    .vback = 0,
+    .framerate = 60,
+};
+
 static int gud_req_get_connector_modes(const struct gud_display *disp, struct gud_display_mode_req *mode, size_t size)
 {
 //  if (disp->edid)
@@ -121,15 +131,20 @@ static int gud_req_get_connector_modes(const struct gud_display *disp, struct gu
     if (size < sizeof(*mode))
         return -GUD_STATUS_PROTOCOL_ERROR;
 
-    mode->clock = 1;
+    struct gud_display_timings *timings = disp->edid->timings;
+    if (timings == NULL) {
+        timings = &default_timings;
+    }
+
     mode->hdisplay = disp->width;
-    mode->hsync_start = mode->hdisplay;
-    mode->hsync_end = mode->hdisplay;
-    mode->htotal = mode->hdisplay;
+    mode->hsync_start = mode->hdisplay + timings->hfront;
+    mode->hsync_end = mode->hsync_start+ timings->hsync;
+    mode->htotal = mode->hsync_end + timings->hback;
     mode->vdisplay = disp->height;
-    mode->vsync_start = mode->vdisplay;
-    mode->vsync_end = mode->vdisplay;
-    mode->vtotal = mode->vdisplay;
+    mode->vsync_start = mode->vdisplay + timings->vfront;
+    mode->vsync_end = mode->vsync_start + timings->vsync;
+    mode->vtotal = mode->vsync_end + timings->vback;
+    mode->clock = mode->htotal * mode->vtotal * timings->framerate;
     mode->flags = GUD_DISPLAY_MODE_FLAG_PREFERRED;
 
     return sizeof(*mode);
@@ -220,24 +235,32 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     memset(edid + 38, 0x01, 16);
 
     // Descriptor 1 (54-71): Detailed Timing Descriptor
-    uint32_t framerate = 60;
-    uint32_t clock_khz = disp->width * disp->height * framerate / 1000;
+    struct gud_display_timings *timings = disp->edid->timings;
+    if (timings == NULL) {
+        timings = &default_timings;
+    }
+    uint16_t hblank = timings->hfront + timings->hsync + timings->hback;
+    uint16_t vblank = timings->vfront + timings->vsync + timings->vback;
+    uint32_t clock_hz = (disp->width + hblank) * (disp->height + vblank) * timings->framerate;
     // Pixel clock in 10 kHz units (0.01–655.35 MHz, little-endian).
-    edid[54] = div_round_up(clock_khz, 10); edid[55] = div_round_up(clock_khz, 10) >> 8;
+    edid[54] = div_round_up(clock_hz, 10000);
+    edid[55] = div_round_up(clock_hz, 10000) >> 8;
 
     edid[56] = disp->width & 0xff; // Horizontal active pixels 8 lsbits (0–4095)
-    edid[57] = 0x00; // Horizontal blanking pixels 8 lsbits (0–4095) End of active to start of next active.
-    edid[58] = (disp->width >> 8) << 4; // Horizontal active pixels 4 msbits << 4 | Horizontal blanking pixels 4 msbits
+    edid[57] = hblank; // Horizontal blanking pixels 8 lsbits (0–4095) End of active to start of next active.
+    edid[58] = (disp->width >> 8) << 4 | (hblank >> 8); // Horizontal active pixels 4 msbits << 4 | Horizontal blanking pixels 4 msbits
 
     edid[59] = disp->height & 0xff; // 480=0x1e0 Vertical active lines 8 lsbits (0–4095)
-    edid[60] = 0x00; // Vertical blanking lines 8 lsbits (0–4095)
-    edid[61] = (disp->height >> 8) << 4; // Vertical active lines 4 msbits << 4 | Vertical blanking lines 4 msbits
+    edid[60] = vblank; // Vertical blanking lines 8 lsbits (0–4095)
+    edid[61] = (disp->height >> 8) << 4 | (vblank >> 8); // Vertical active lines 4 msbits << 4 | Vertical blanking lines 4 msbits
 
-    edid[62] = 0x00; // Horizontal front porch (sync offset) pixels 8 lsbits (0–1023) From blanking start
-    // DRM chokes on zero pulse width, so use 1:
-    edid[63] = 0x01; // Horizontal sync pulse width pixels 8 lsbits (0–1023)
-    edid[64] = 0x01; // Vertical front porch (sync offset) lines 4 lsbits (0–63) << 4 | Vertical sync pulse width lines 4 lsbits (0–63)
-    edid[65] = 0x00; // msbits
+    edid[62] = timings->hfront; // Horizontal front porch (sync offset) pixels 8 lsbits (0–1023) From blanking start
+    edid[63] = timings->hsync; // Horizontal sync pulse width pixels 8 lsbits (0–1023)
+    edid[64] = timings->vfront << 4 | timings->vsync & 0xF; // Vertical front porch (sync offset) lines 4 lsbits (0–63) << 4 | Vertical sync pulse width lines 4 lsbits (0–63)
+    edid[65] = (timings->hfront >> 8) << 6 |
+        (timings->hsync >> 8) << 4 |
+        (timings->vfront >> 4) << 2 |
+        (timings->vsync >> 4); // msbits
 
     edid[66] = disp->edid->width_mm & 0xff; // Horizontal image size, mm, 8 lsbits (0–4095 mm)
     edid[67] = disp->edid->height_mm & 0xff; // Vertical image size, mm, 8 lsbits (0–4095 mm)
