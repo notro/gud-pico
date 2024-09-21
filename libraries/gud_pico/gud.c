@@ -201,11 +201,12 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     edid[21] = div_round_up(disp->edid->width_mm, 10); // width in cm
     edid[22] = div_round_up(disp->edid->height_mm, 10); // height in cm
     edid[23] = 0; // gamma
-    edid[24] = 0x0a; // RGB-color, preferred timing in DTD 1
+    edid[24] = 0x02; // RGB 4:4:4, preferred timings include pixel format and refresh rate
 
     // Chromaticity coordinates, required for sRGB
     struct gud_display_chromaticity *chroma = disp->edid->chromaticity;
     if (chroma == NULL) {
+        edid[24] |= 0x4; // Standard sRGB color space
         chroma = &default_chromaticity;
     }
     // Red and green 2 least significant bits
