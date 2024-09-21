@@ -246,8 +246,8 @@ static const uint8_t pixel_formats[] = {
 //    GUD_PIXEL_FORMAT_R1,
 //    GUD_PIXEL_FORMAT_R8,
 //    GUD_PIXEL_FORMAT_XRGB1111,
-//    GUD_PIXEL_FORMAT_RGB332,
     GUD_PIXEL_FORMAT_RGB565,
+    GUD_PIXEL_FORMAT_RGB332,
 };
 
 static const struct gud_property_req connector_properties[] = {
@@ -285,7 +285,7 @@ const struct gud_display display = {
     .compression = GUD_COMPRESSION_LZ4,
 
     .formats = pixel_formats,
-    .num_formats = 1,
+    .num_formats = 2,
 
     .connector_properties = connector_properties,
     .num_connector_properties = 1,
