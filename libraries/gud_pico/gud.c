@@ -193,8 +193,8 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     else
         edid[17] = 0;
 
-    // EDID version 1.3
-    edid[18] = 1; edid[19] = 3;
+    // EDID version 1.4
+    edid[18] = 1; edid[19] = 4;
 
     // Basic display parameters
     edid[20] = 0x80;  // Digital input: 1, bit depth: undefined, interface: undefined
