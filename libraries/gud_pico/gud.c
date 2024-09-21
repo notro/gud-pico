@@ -105,6 +105,14 @@ static int gud_req_get_connector_status(const struct gud_display *disp, uint8_t 
     return sizeof(*status);
 }
 
+// Standard sRGB values
+static struct gud_display_chromaticity default_chromaticity = {
+    .r = { 655, 338 },
+    .g = { 307, 614 },
+    .b = { 154, 61 },
+    .w = { 320, 337 },
+};
+
 static int gud_req_get_connector_modes(const struct gud_display *disp, struct gud_display_mode_req *mode, size_t size)
 {
 //  if (disp->edid)
@@ -180,8 +188,30 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     edid[23] = 0; // gamma
     edid[24] = 0x0a; // RGB-color, preferred timing in DTD 1
 
-    // chroma
-    memset(edid + 25, 0, 10);
+    // Chromaticity coordinates, required for sRGB
+    struct gud_display_chromaticity *chroma = disp->edid->chromaticity;
+    if (chroma == NULL) {
+        chroma = &default_chromaticity;
+    }
+    // Red and green 2 least significant bits
+    edid[25] = (chroma->r.x & 3) << 6 |
+        (chroma->r.y & 3) << 4 |
+        (chroma->g.x & 3) << 2 |
+        (chroma->g.y & 3);
+    // Blue and white 2 least significant bits
+    edid[26] = (chroma->b.x & 3) << 6 |
+        (chroma->b.y & 3) << 4 |
+        (chroma->w.x & 3) << 2 |
+        (chroma->w.y & 3);
+    // 8 most significant bits
+    edid[27] = chroma->r.x >> 2;
+    edid[28] = chroma->r.y >> 2;
+    edid[29] = chroma->g.x >> 2;
+    edid[30] = chroma->g.y >> 2;
+    edid[31] = chroma->b.x >> 2;
+    edid[32] = chroma->b.y >> 2;
+    edid[33] = chroma->w.x >> 2;
+    edid[34] = chroma->w.y >> 2;
 
     // Established timings (not used)
     memset(edid + 35, 0, 3);
