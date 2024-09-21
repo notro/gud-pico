@@ -197,7 +197,27 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     edid[18] = 1; edid[19] = 4;
 
     // Basic display parameters
-    edid[20] = 0x80;  // Digital input: 1, bit depth: undefined, interface: undefined
+    edid[20] = 0x80; // Digital input: 1, interface: undefined
+    switch (disp->edid->bit_depth) {
+    case 16:
+        edid[20] |= 0b110 << 4;
+        break;
+    case 14:
+        edid[20] |= 0b101 << 4;
+        break;
+    case 12:
+        edid[20] |= 0b100 << 4;
+        break;
+    case 10:
+        edid[20] |= 0b011 << 4;
+        break;
+    case 8:
+        edid[20] |= 0b010 << 4;
+        break;
+    case 6:
+        edid[20] |= 0b001 << 4;
+        break;
+    }
     edid[21] = div_round_up(disp->edid->width_mm, 10); // width in cm
     edid[22] = div_round_up(disp->edid->height_mm, 10); // height in cm
     edid[23] = disp->edid->gamma ? disp->edid->gamma - 100 : 0; // gamma
