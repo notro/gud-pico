@@ -40,6 +40,8 @@
 #define BL_GPIO 20
 #define BL_DEF_LEVEL 100
 
+#define XOFF    40
+#define YOFF    53
 #define WIDTH   240
 #define HEIGHT  135
 
@@ -234,7 +236,7 @@ static void write_buffer(const struct gud_display *disp, const struct gud_set_bu
         buf = conversion_buffer;
     }
 
-    mipi_dbi_update16(&dbi, set_buf->x + 40, set_buf->y + 53, set_buf->width, set_buf->height, buf, length);
+    mipi_dbi_update16(&dbi, set_buf->x + XOFF, set_buf->y + YOFF, set_buf->width, set_buf->height, buf, length);
 
     if (LED_ACTION == 1)
         board_led_write(true);
@@ -324,7 +326,7 @@ static void init_display(void)
     sleep_ms(100);
 
     // Clear display
-    mipi_dbi_update16(&dbi, 40, 53, WIDTH, HEIGHT, framebuffer, WIDTH * HEIGHT * 2);
+    mipi_dbi_update16(&dbi, XOFF, YOFF, WIDTH, HEIGHT, framebuffer, WIDTH * HEIGHT * 2);
 }
 
 static void pwm_gpio_init(uint gpio, uint16_t val)
