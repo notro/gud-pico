@@ -275,6 +275,9 @@ static const struct gud_display_edid edid = {
     .width_mm = 27,
     .height_mm = 16,
 
+    .gamma = 220,
+    .bit_depth = 6,
+
     .get_serial_number = gud_display_edid_get_serial_number,
 };
 

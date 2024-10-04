@@ -105,6 +105,24 @@ static int gud_req_get_connector_status(const struct gud_display *disp, uint8_t 
     return sizeof(*status);
 }
 
+// Standard sRGB values
+static struct gud_display_chromaticity default_chromaticity = {
+    .r = { 655, 338 },
+    .g = { 307, 614 },
+    .b = { 154, 61 },
+    .w = { 320, 337 },
+};
+
+static struct gud_display_timings default_timings = {
+    .hfront = 0,
+    .hsync = 0,
+    .hback = 0,
+    .vfront = 0,
+    .vsync = 0,
+    .vback = 0,
+    .framerate = 60,
+};
+
 static int gud_req_get_connector_modes(const struct gud_display *disp, struct gud_display_mode_req *mode, size_t size)
 {
 //  if (disp->edid)
@@ -113,15 +131,20 @@ static int gud_req_get_connector_modes(const struct gud_display *disp, struct gu
     if (size < sizeof(*mode))
         return -GUD_STATUS_PROTOCOL_ERROR;
 
-    mode->clock = 1;
+    struct gud_display_timings *timings = disp->edid->timings;
+    if (timings == NULL) {
+        timings = &default_timings;
+    }
+
     mode->hdisplay = disp->width;
-    mode->hsync_start = mode->hdisplay;
-    mode->hsync_end = mode->hdisplay;
-    mode->htotal = mode->hdisplay;
+    mode->hsync_start = mode->hdisplay + timings->hfront;
+    mode->hsync_end = mode->hsync_start+ timings->hsync;
+    mode->htotal = mode->hsync_end + timings->hback;
     mode->vdisplay = disp->height;
-    mode->vsync_start = mode->vdisplay;
-    mode->vsync_end = mode->vdisplay;
-    mode->vtotal = mode->vdisplay;
+    mode->vsync_start = mode->vdisplay + timings->vfront;
+    mode->vsync_end = mode->vsync_start + timings->vsync;
+    mode->vtotal = mode->vsync_end + timings->vback;
+    mode->clock = mode->htotal * mode->vtotal * timings->framerate;
     mode->flags = GUD_DISPLAY_MODE_FLAG_PREFERRED;
 
     return sizeof(*mode);
@@ -164,24 +187,67 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     }
 
     // Manufacture
-    edid[16] = 1; // week
+    edid[16] = disp->edid->week;
     if (disp->edid->year > 1990)
         edid[17] = disp->edid->year - 1990;
     else
         edid[17] = 0;
 
-    // EDID version 1.3
-    edid[18] = 1; edid[19] = 3;
+    // EDID version 1.4
+    edid[18] = 1; edid[19] = 4;
 
     // Basic display parameters
-    edid[20] = 0x80;  // Digital input: 1, bit depth: undefined, interface: undefined
+    edid[20] = 0x80; // Digital input: 1, interface: undefined
+    switch (disp->edid->bit_depth) {
+    case 16:
+        edid[20] |= 0b110 << 4;
+        break;
+    case 14:
+        edid[20] |= 0b101 << 4;
+        break;
+    case 12:
+        edid[20] |= 0b100 << 4;
+        break;
+    case 10:
+        edid[20] |= 0b011 << 4;
+        break;
+    case 8:
+        edid[20] |= 0b010 << 4;
+        break;
+    case 6:
+        edid[20] |= 0b001 << 4;
+        break;
+    }
     edid[21] = div_round_up(disp->edid->width_mm, 10); // width in cm
     edid[22] = div_round_up(disp->edid->height_mm, 10); // height in cm
-    edid[23] = 0; // gamma
-    edid[24] = 0x0a; // RGB-color, preferred timing in DTD 1
+    edid[23] = disp->edid->gamma ? disp->edid->gamma - 100 : 0; // gamma
+    edid[24] = 0x02; // RGB 4:4:4, preferred timings include pixel format and refresh rate
 
-    // chroma
-    memset(edid + 25, 0, 10);
+    // Chromaticity coordinates, required for sRGB
+    struct gud_display_chromaticity *chroma = disp->edid->chromaticity;
+    if (chroma == NULL) {
+        edid[24] |= 0x4; // Standard sRGB color space
+        chroma = &default_chromaticity;
+    }
+    // Red and green 2 least significant bits
+    edid[25] = (chroma->r.x & 3) << 6 |
+        (chroma->r.y & 3) << 4 |
+        (chroma->g.x & 3) << 2 |
+        (chroma->g.y & 3);
+    // Blue and white 2 least significant bits
+    edid[26] = (chroma->b.x & 3) << 6 |
+        (chroma->b.y & 3) << 4 |
+        (chroma->w.x & 3) << 2 |
+        (chroma->w.y & 3);
+    // 8 most significant bits
+    edid[27] = chroma->r.x >> 2;
+    edid[28] = chroma->r.y >> 2;
+    edid[29] = chroma->g.x >> 2;
+    edid[30] = chroma->g.y >> 2;
+    edid[31] = chroma->b.x >> 2;
+    edid[32] = chroma->b.y >> 2;
+    edid[33] = chroma->w.x >> 2;
+    edid[34] = chroma->w.y >> 2;
 
     // Established timings (not used)
     memset(edid + 35, 0, 3);
@@ -190,24 +256,32 @@ static int gud_req_get_connector_edid(const struct gud_display *disp,
     memset(edid + 38, 0x01, 16);
 
     // Descriptor 1 (54-71): Detailed Timing Descriptor
-    uint32_t framerate = 60;
-    uint32_t clock_khz = disp->width * disp->height * framerate / 1000;
+    struct gud_display_timings *timings = disp->edid->timings;
+    if (timings == NULL) {
+        timings = &default_timings;
+    }
+    uint16_t hblank = timings->hfront + timings->hsync + timings->hback;
+    uint16_t vblank = timings->vfront + timings->vsync + timings->vback;
+    uint32_t clock_hz = (disp->width + hblank) * (disp->height + vblank) * timings->framerate;
     // Pixel clock in 10 kHz units (0.01–655.35 MHz, little-endian).
-    edid[54] = div_round_up(clock_khz, 10); edid[55] = div_round_up(clock_khz, 10) >> 8;
+    edid[54] = div_round_up(clock_hz, 10000);
+    edid[55] = div_round_up(clock_hz, 10000) >> 8;
 
     edid[56] = disp->width & 0xff; // Horizontal active pixels 8 lsbits (0–4095)
-    edid[57] = 0x00; // Horizontal blanking pixels 8 lsbits (0–4095) End of active to start of next active.
-    edid[58] = (disp->width >> 8) << 4; // Horizontal active pixels 4 msbits << 4 | Horizontal blanking pixels 4 msbits
+    edid[57] = hblank; // Horizontal blanking pixels 8 lsbits (0–4095) End of active to start of next active.
+    edid[58] = (disp->width >> 8) << 4 | (hblank >> 8); // Horizontal active pixels 4 msbits << 4 | Horizontal blanking pixels 4 msbits
 
     edid[59] = disp->height & 0xff; // 480=0x1e0 Vertical active lines 8 lsbits (0–4095)
-    edid[60] = 0x00; // Vertical blanking lines 8 lsbits (0–4095)
-    edid[61] = (disp->height >> 8) << 4; // Vertical active lines 4 msbits << 4 | Vertical blanking lines 4 msbits
+    edid[60] = vblank; // Vertical blanking lines 8 lsbits (0–4095)
+    edid[61] = (disp->height >> 8) << 4 | (vblank >> 8); // Vertical active lines 4 msbits << 4 | Vertical blanking lines 4 msbits
 
-    edid[62] = 0x00; // Horizontal front porch (sync offset) pixels 8 lsbits (0–1023) From blanking start
-    // DRM chokes on zero pulse width, so use 1:
-    edid[63] = 0x01; // Horizontal sync pulse width pixels 8 lsbits (0–1023)
-    edid[64] = 0x01; // Vertical front porch (sync offset) lines 4 lsbits (0–63) << 4 | Vertical sync pulse width lines 4 lsbits (0–63)
-    edid[65] = 0x00; // msbits
+    edid[62] = timings->hfront; // Horizontal front porch (sync offset) pixels 8 lsbits (0–1023) From blanking start
+    edid[63] = timings->hsync; // Horizontal sync pulse width pixels 8 lsbits (0–1023)
+    edid[64] = timings->vfront << 4 | timings->vsync & 0xF; // Vertical front porch (sync offset) lines 4 lsbits (0–63) << 4 | Vertical sync pulse width lines 4 lsbits (0–63)
+    edid[65] = (timings->hfront >> 8) << 6 |
+        (timings->hsync >> 8) << 4 |
+        (timings->vfront >> 4) << 2 |
+        (timings->vsync >> 4); // msbits
 
     edid[66] = disp->edid->width_mm & 0xff; // Horizontal image size, mm, 8 lsbits (0–4095 mm)
     edid[67] = disp->edid->height_mm & 0xff; // Vertical image size, mm, 8 lsbits (0–4095 mm)

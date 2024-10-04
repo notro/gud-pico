@@ -336,13 +336,39 @@ struct gud_state_req {
 /* Enable/disable display/output (DPMS), value is u8: 0/1 */
 #define GUD_REQ_SET_DISPLAY_ENABLE			0x64
 
+struct gud_color_xy {
+	uint16_t x, y;
+};
+
+struct gud_display_chromaticity {
+	struct gud_color_xy r, g, b, w;
+};
+
+struct gud_display_timings {
+	uint8_t hfront;
+	uint8_t hsync;
+	uint8_t hback;
+
+	uint8_t vfront;
+	uint8_t vsync;
+	uint8_t vback;
+
+	uint8_t framerate;
+};
+
 struct gud_display_edid {
 	const char *name;	// Max 13 characters
 	const char *pnp;	// Plug'n Play Id, must be 3 uppercase characters
 	uint16_t product_code;
+	uint8_t week;
 	uint16_t year;
 	uint16_t width_mm;
 	uint16_t height_mm;
+	uint8_t bit_depth;
+	uint16_t gamma;
+
+	struct gud_display_chromaticity *chromaticity;
+	struct gud_display_timings *timings;
 
 	uint32_t (*get_serial_number)(void);
 };
