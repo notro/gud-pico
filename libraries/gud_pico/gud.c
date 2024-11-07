@@ -144,7 +144,7 @@ static int gud_req_get_connector_modes(const struct gud_display *disp, struct gu
     mode->vsync_start = mode->vdisplay + timings->vfront;
     mode->vsync_end = mode->vsync_start + timings->vsync;
     mode->vtotal = mode->vsync_end + timings->vback;
-    mode->clock = mode->htotal * mode->vtotal * timings->framerate;
+    mode->clock = div_round_up(mode->htotal * mode->vtotal * timings->framerate, 1000);
     mode->flags = GUD_DISPLAY_MODE_FLAG_PREFERRED;
 
     return sizeof(*mode);
